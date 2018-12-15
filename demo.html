@@ -1,0 +1,720 @@
+﻿<html>
+<head>
+    <title>demo</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script src="./lib/fabric.js"></script>
+    <script src="./lib/jquery.js"></script>
+    <script src="./lib/underscore.js"></script>
+    <script src="./lib/backbone.js"></script>
+    <script src="./lib/fabricExtend.js"></script>
+    <script src='./lib/spectrum.js'></script>
+    <script src="./shape_toolbar.js"></script>
+    <script src="./poe.js"></script>
+
+
+
+    <link rel="stylesheet" type="text/css" href="css/subjectTool.css">
+    <link rel='stylesheet' href='css/spectrum.css'/>
+</head>
+
+<style>
+    .mode-select .active {
+        background: #ff0;
+    }
+
+    #font-config {
+        display: none;
+        position: relative;
+        top: 0;
+        left: 0;
+    }
+</style>
+
+<body bgcolor="white">
+    <script id="toolbarTemplate" type="text/template">
+        <ul class="toolbar-ul">
+            <li class="toolbar-li left-corner">
+                <div class="border" data-clickcallback="btn_setanswer">
+                    <div class="answer">
+                        <div class="icon01" data-clickcallback="btn_setanswer"></div>
+                        <div class="txt" data-clickcallback="btn_setanswer">设空</div>
+                    </div>
+                    <div class="noanswer" style="display: none">
+                        <div class="icon01" data-clickcallback="btn_removeanswer"></div>
+                        <div class="txt" data-clickcallback="btn_removeanswer">取消设空</div>
+                    </div>
+
+                </div>
+                <span class="border-arrow"></span>
+            </li>
+            <li class="toolbar-li">
+                <div class="icon06" data-clickcallback="btn_edit"></div>
+                <div class="txt" data-clickcallback="btn_edit">编辑</div>
+            </li>
+            <li class="toolbar-li">
+                <div class="icon03" data-clickcallback="btn_top"></div>
+                <div class="txt" data-clickcallback="btn_top">置顶</div>
+            </li>
+            <li class="toolbar-li">
+                <div class="icon04" data-clickcallback="btn_copy"></div>
+                <div class="txt" data-clickcallback="btn_copy">复制</div>
+            </li>
+            <li class="toolbar-li right-corner">
+                <div class="icon05" id="btn_close" data-clickcallback="btn_close"></div>
+                <div class="txt" data-clickcallback="btn_close">删除</div>
+            </li>
+        </ul>
+    </script>
+
+    <table>
+        <tr>
+            <td>
+                设置背景
+            </td>
+            <td>
+                <input type="file" id="f_bkimg"/>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                添加元件
+            </td>
+            <td>
+                <input type="button" id="add_text" value="添加文字">
+                <input type="button" value="添加图片">
+            </td>
+        </tr>
+        <tr>
+            <td>
+                编辑模式
+            </td>
+            <td class="mode-select">
+                <input type="button" value="1.编辑棋盘" mode="1">
+                <input type="button" value="2.编辑容器" mode="2">
+                <input type="button" value="3.设置答案" mode="3">
+                <input type="button" value="4.答题预览" mode="4">
+            </td>
+        </tr>
+    </table>
+
+
+    表格总行<input type="text" name="input_row_counts" id="input_row_counts" value="10">
+
+    <br>
+
+    表格总列<input type="text" name="input_columns_counts" id="input_columns_counts" value="10">
+
+    <input type="file" class="uploading" name="file" id="uploadimg" onchange="addImg()"
+           accept="image/jpg,image/jpeg,image/gif,image/png">
+    <!-- <button type="button" id="addImg" onclick="addImg()">添加图片</button> -->
+
+    <button type="button" id="addText" onclick="addText(this)">添加文字</button>
+
+    <button type="button" id="startPlay" onclick="startPlay()">开始答题</button>
+    <div class="canvas-container" style="width: 840px; height: 840px; position: relative; user-select: none;">
+        <canvas id="c" width="1260" height="1260"
+                style="border: 1px solid rgb(170, 170, 170); position: absolute; width: 840px; height: 840px; left: 0px; top: 0px; touch-action: none; user-select: none;"
+                class="lower-canvas"></canvas>
+
+        <div id="font-config">
+            字体颜色:   <input id='colorpicker'/>
+            <br>
+            字体类型:
+			<select id="font-family"></select>
+        </div>
+
+
+    </div>
+
+
+    <script type="text/javascript">
+
+        // 原点中心
+        fabric.Object.prototype.originX = fabric.Object.prototype.originY = 'center';
+        // 画布
+        var canvas = this.__canvas = new fabric.Canvas('c', {
+            hoverCursor: 'pointer',
+            selection: false,// 禁止群选
+            selectable: true, // 可选
+            perPixelTargetFind: true,
+            targetFindTolerance: 5
+        });
+        // var rowCounts = $("#input_row_counts").val();
+        // var columCounts = $("#input_columns_counts").val();
+
+        // 模式编辑区域的value值
+        answer_map = {
+            mode: 0,
+            data: [],
+            SetMode: (i) => {
+                mode = i;
+            },
+        };
+
+
+        // 编辑模式区域的点击事件
+        $(".mode-select > input").on("click", (t) => {
+            $this = $(t.toElement);
+            $this.parent().find(".active").removeClass("active");
+            $this.addClass("active");
+            answer_map.mode = parseInt($this.attr("mode"));
+            // 编辑棋盘
+            switch (answer_map.mode) {
+                case 1 : {
+                    pageFunc.rowCounts = $("#input_row_counts").val();
+                    pageFunc.columCounts = $("#input_columns_counts").val();
+                    pageFunc.renderTable();
+                    pageFunc.isRenderTable = true;
+
+                    pageFunc.renderUserData();
+
+                }
+                //     case 2 : {},
+                //     case 3 : {},
+                //     case 4 : {}
+            }
+
+        });
+        // 编辑棋盘
+        // $(".mode-select > input").eq(0).on("click",()=>{
+        //     console.log(2);
+        //     pageFunc.rowCounts = $("#input_row_counts").val();
+        //     pageFunc.columCounts = $("#input_columns_counts").val();
+        //     pageFunc.renderTable();
+        //     pageFunc.renderUserData();
+        //
+        // });
+
+
+        var map_data = {
+
+            backgroud: {},
+
+        };
+
+
+        // 背景图片更新渲染
+        bindFileTobase64("#f_bkimg", (lst) => {
+            // 删除原来的表格
+            var rects = canvas.getObjects("rect");
+            for(var i=0;i<rects.length;i++){
+                canvas.remove(rects[i]);
+            }
+            // 绘制网格线
+            var options = {
+                distance: pageFunc.cellWidth,
+                width: pageFunc.rowCounts * pageFunc.cellWidth,
+                height: pageFunc.columCounts * pageFunc.cellWidth,
+                pos: pageFunc.cellWidth / 2
+            };
+            var gridLen = options.width / options.distance;
+            for (var i = 0; i < gridLen+1; i++) {
+                var distance   = i * options.distance;
+                var horizontal = new fabric.Line([ distance+options.pos, options.pos, distance+options.pos, options.width+options.pos],{
+                    stroke: '#abcdef',
+                });
+                var vertical   = new fabric.Line([ options.pos, distance+options.pos, options.width+options.pos, distance+options.pos],{
+                    stroke: '#abcdef',
+                });
+                canvas.add(horizontal);
+                canvas.add(vertical);
+                canvas.requestRenderAll();
+            };
+            // 添加背景图片
+            fabric.Image.fromURL(lst[0], (img) => {
+                map_data.backgroud = img;
+                img.selection = false;
+                img.selectable = false;
+                img.originX = 0;
+                img.originY = 0;
+                img.top = pageFunc.cellWidth / 2;
+                img.left = pageFunc.cellWidth / 2;
+                img.width = pageFunc.rowCounts * pageFunc.cellWidth;
+                img.height = pageFunc.columCounts * pageFunc.cellWidth;
+                canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+            });
+        });
+
+        // 添加文字的点击事件
+        document.getElementById("add_text").addEventListener("click", () => {
+            var sunTextObj = new fabric.Textbox('双击修改', {
+                fill: '#000000',
+                strokeWidth: 2,
+            });
+            pageFunc.addUserData(sunTextObj);
+        });
+
+
+        //相关utils类
+        var DUtils = {
+            IspointInRect: function (point, rect) {
+                var x = point.x, y = point.y;
+
+                if (x <= rect.left) {//在矩形左侧
+                    return false;
+                }
+                if (x >= rect.right) {//在矩形右侧
+                    return false;
+                }
+                if (y <= rect.top) {//在矩形上侧
+                    return false;
+                }
+                if (y >= rect.bottom) {//在矩形下侧
+                    return false;
+                }
+                return true;
+            }
+        };
+
+
+        var startPlay = function () {
+            pageFunc.startPlay();
+        }
+
+
+        var pageFunc = {
+            rowCounts: $("#input_row_counts").val(),
+            columCounts: $("#input_columns_counts").val(),
+            cellBorder: 2,
+            isPlaying: false,//是否开始玩耍
+            startPoint: {x: 50, y: 50}, //绘制起点
+            cellWidth: 50,// 每个小方格的宽度，假设都是正方形
+            tablelcells: [],// 每个背景矩形
+            userData: [],//用户添加的数据，包括文字，图片，可拖动元素
+            initConfigData: function () {
+            },
+			fontFamily: {
+				黑体: "SimHei",
+				宋体: "SimSun",
+				仿宋: "FangSong",
+				楷体: "KaiTi",
+				仿宋_GB2312: "FangSong_GB2312",
+				微软雅黑: "Microsoft YaHei",
+				隶书: "LiSu",
+				幼圆: "YouYuan",
+                Arial: "Arial",
+                TimesNewRoman:"Times New Roman",
+				华文细黑: "STXihei",
+				华文楷体: "STKaiti",
+				华文宋体: "STSong",
+				方正姚体: "FZYaoti",
+				华文彩云: "STCaiyun",
+				华文琥珀: "STHupo",
+				华文隶书: "STLiti",
+				华文行楷: "STXingkai",
+				华文新魏: "STXinwei"
+			},
+
+            // 渲染表格
+            renderTable: function () {
+
+                for (var x = 0; x < pageFunc.columCounts; x++) {
+                    pageFunc.tablelcells[x] = [];
+                    for (var y = 0; y < pageFunc.rowCounts; y++) {
+
+                        var num = y * pageFunc.columCounts + x;
+
+                        var rect = new fabric.Rect({
+                            selection: false,
+                            selectable: false,
+                            left: pageFunc.startPoint.x + x * (pageFunc.cellWidth),
+                            top: pageFunc.startPoint.y + y * (pageFunc.cellWidth),
+                            fill: (((x % 2) + (y % 2)) % 2 == 0 ? '#dfdfdf' : '#ffffff'),
+                            stroke: '',
+                            strokeWidth: pageFunc.cellBorder,
+                            width: pageFunc.cellWidth,
+                            height: pageFunc.cellWidth
+                        });
+                        canvas.add(rect);
+                        pageFunc.tablelcells[x][y] = rect;
+                    }
+                }
+            },
+
+            // 渲染用户数据
+            renderUserData: function (isAddToCanvas, isOnlyAnswer) {
+                //重新定位位置，渲染
+                for (var i = 0; i < pageFunc.userData.length; i++) {
+                    var obj = pageFunc.userData[i];
+
+                    if (isOnlyAnswer && !obj.isAnswer) continue;
+                    obj.set("left", 100 + i * 50)
+                        .set("top", pageFunc.cellWidth * pageFunc.rowCounts + 100)
+                        .setCoords();
+                    if (isAddToCanvas) canvas.add(obj);
+                }
+                canvas.requestRenderAll();
+            },
+
+            // 渲染字体样式
+            renderFontFamily:function(){
+                var $font = $("#font-family");
+                    //节点片段
+                var oF = document.createDocumentFragment();
+                    for( key in pageFunc.fontFamily){
+                        let oP = document.createElement('option');
+                        oP.innerHTML = key;
+                        oP.setAttribute("value",pageFunc.fontFamily[key]);
+                        oF.appendChild(oP);
+                    }
+                $font.append(oF);
+            },
+
+            moveAnswersToStandBy: function () {
+                pageFunc.resetAnswerObjs();
+                pageFunc.renderUserData(false, true);
+
+            },
+
+            //重置所有的答案obj的外观和设定不包括位置
+            resetAnswerObjs: function () {
+                for (var i = 0; i < pageFunc.userData.length; i++) {
+                    var objData = pageFunc.userData[i];
+                    if (objData.isAnswer) {
+                        objData.inTargetCell = null;
+                        objData.set('opacity', 1);
+                        objData.selectable = true;
+                    }
+                }
+
+            },
+            // 事件绑定
+            bindEvent: function () {
+                canvas.on({
+                    'object:moved': pageFunc.onLocationChange,
+                    'object:scaled': pageFunc.onLocationChange,
+                    'object:rotated': pageFunc.onLocationChange,
+                });
+                canvas.on({
+                    'object:moving': function (e) {
+                        e.target.opacity = 0.5;
+                    },
+                    'object:modified': function (e) {
+                        e.target.opacity = 1;
+                    }
+                });
+                canvas.on('text:changed', function(e) {
+                    // 获取文字的宽度
+                    String.prototype.visualLength = function(){
+                        var ruler = $("#addText");
+                        return ruler[0].offsetWidth;
+                    };
+                    var text = e.target.text;
+                    var width = text.visualLength();
+                    // var  w =  this.measureText(text).width;
+                    e.target.width = width;
+                });
+                canvas.on({
+                    'mouse:down': function () {
+                        $("#font-config").hide();
+                    }
+                });
+            },
+
+            startPlay: function () {
+                //将所有的设置答案的元素重新移动到待选区，然后用户开始移动，每次移动完成之后判定是否完成
+                pageFunc.moveAnswersToStandBy();
+                pageFunc.isPlaying = true;
+            },
+
+            //位置发生改变，重新估算
+            onLocationChange: function (opt) {
+                var moveObj = opt.target;
+                var targetCell = pageFunc.getTargetCell(moveObj);
+                if (targetCell != null) {
+                    console.log("找到");
+                    //targetCell.set('opacity', 0.5);
+                    pageFunc.moveObjToTargetCell(moveObj, targetCell, function () {
+
+                        if (pageFunc.isPlaying) {
+                            if (pageFunc.checkAnswers()) {
+
+                                pageFunc.afterAnswerRight();
+                            }
+                        }
+                    });
+                }
+
+                if( opt.isAnswer === true ){
+                    $(".answer").hide();
+                    $(".noanswer").show();
+                }else{
+                    $(".answer").show();
+                    $(".noanswer").hide();
+                }
+            },
+
+            //检查答案，是否都已经在预备区域了，
+            checkAnswers: function (objData) {
+                //遍历user data check answers,
+                var answerCount = 0, rightCount = 0;
+                for (var i = 0; i < pageFunc.userData.length; i++) {
+                    var obj = pageFunc.userData[i];
+                    if (obj.isAnswer) {
+                        answerCount++;
+                        if (obj.inTargetCell == obj.answerCell) {
+                            rightCount++;
+                        }
+                    }
+                }
+
+
+
+                return answerCount == rightCount;
+            },
+
+            //全部完成之后的动画和处理
+            afterAnswerRight: function () {
+                pageFunc.isPlaying = false;
+                pageFunc.resetAnswerObjs()
+                alert("恭喜完成");
+            },
+
+            //使用动画，移动obj到targetCell中
+            moveObjToTargetCell: function (moveObj, targetCell, onFinish) {
+                moveObj.inTargetCell = targetCell;
+                var moveVet = targetCell.getCenterPoint().subtract(moveObj.getCenterPoint());
+                //计算出移动向量
+
+                var moveLeft = moveObj.left + moveVet.x;
+                var moveTop = moveObj.top + moveVet.y;
+                console.log("移动到，left=" + moveLeft + ",top=" + moveTop);
+                moveObj.animate({left: moveLeft, top: moveTop}, {
+                    duration: 500,
+                    onChange: canvas.renderAll.bind(canvas),
+                    onComplete: function () {
+                        onFinish();
+                    },
+                    easing: fabric.util.ease.easeOutExpo
+                });
+
+
+            },
+
+            //找到当前point落在的cell中，如果为空则返回null
+            getTargetCell: function (obj) {
+                var point = obj.getCenterPoint();
+                var tempCell = new Array();
+                for (var i = 0; i < pageFunc.rowCounts; i++) {
+                    for (var j = 0; j < pageFunc.columCounts; j++) {
+                        if (obj.intersectsWithObject(pageFunc.tablelcells[i][j]))
+                            tempCell.push(pageFunc.tablelcells[i][j]);
+                    }
+                }
+
+                if (tempCell.length == 0)
+                    return null;
+
+                if (tempCell.length == 1)
+                    return tempCell[0];
+
+                var minLen = Number.MAX_VALUE, min_i = 0;
+
+                for (var i = 0; i < tempCell.length; i++) {
+                    var dis = tempCell[i].getCenterPoint().distanceFrom(point);
+                    if (dis < minLen) {
+                        min_i = i;
+                        minLen = dis;
+                    }
+                }
+                return tempCell[min_i];
+
+
+            },
+
+            // 初始时刻的用户数据
+            initUserData: function () {
+
+                // load sun and center it
+                fabric.Image.fromURL('./assets/sun.png', function (sunImg) {
+                    sunImg.selection = true;
+                    sunImg.selectable = true;
+                    sunImg.center();
+
+                    pageFunc.addUserData(sunImg);
+                });
+
+                var sunTextObj = new fabric.Textbox('Sun', {
+                    fill: '#880E4F',
+                    strokeWidth: 2,
+                    stroke: "#D81B60",
+                });
+
+                pageFunc.addUserData(sunTextObj);
+
+
+            },
+            // 添加用户数据
+            addUserData: function (objData) {
+
+                objData.objectTools = new ObjectTools();
+                objData.objectTools.load(pageFunc, canvas, objData);
+                objData.isAnswer = false;
+                objData.inTargetCell = null;//当前所处的cell
+                objData.answerCell = null;//设定对应的cell,
+                pageFunc.userData.push(objData);
+                pageFunc.renderUserData(true, false);
+            },
+            // 设置答案(设空)
+            setAnswer: function (objData) {
+                objData.isAnswer = true;
+                objData.answerCell = objData.inTargetCell; //可以为null, 也就是干扰项
+                $(".answer").hide();
+                $(".noanswer").show();
+                $("#font-config").hide();
+                canvas.discardActiveObject();//可以关闭菜单
+            },
+            // 取消答案(取消设空)
+            removeAnswer:function(objData){
+                objData.isAnswer = false;
+                objData.answerCell = null;
+                $(".answer").show();
+                $(".noanswer").hide();
+                $("#font-config").hide();
+                canvas.discardActiveObject();//可以关闭菜单
+            },
+            // 删除
+            removeObj: function (objData) {
+                fabric.util.removeFromArray(pageFunc.userData, objData);
+                window.canvas.remove(self.target);
+                //todo 删除text无效
+                //canvas.renderAll.bind(canvas); 也无效
+
+            },
+            // 复制
+            copyObj: function (objData) {
+                // self.canvas.clone(self.target);
+                // pageFunc.addUserData(objData); //todo 新增数据
+
+                var newObject = fabric.util.object.clone(canvas.getActiveObject());
+
+                canvas.discardActiveObject();
+                newObject.set("top", newObject.top+25);
+                newObject.set("left", newObject.left+25);
+                canvas.add(newObject);
+                canvas.setActiveObject(newObject);
+                pageFunc.userData.push(newObject);
+                canvas.requestRenderAll();
+                // canvas.discardActiveObject();
+
+            },
+            // 编辑
+            editObj: function () {
+                var $fontConfig = $("#font-config");
+                var $footChoose = $(".sp-choose");
+                var left = $(".toolbar-ul").parent()[0].offsetLeft;
+                var top = $(".toolbar-ul").parent()[0].offsetTop;
+
+                // 字体颜色与类型位置
+                $fontConfig
+                    .show()
+                    .offset({
+                        left: left + 100,
+                        top : top + 250
+                    });
+                // 字体颜色
+                $footChoose.on("click",(event)=>{
+                    event || window.event;
+                    event.stopPropagation
+                        ? event.stopPropagation()
+                        :(event.cancelBubble = true);
+
+                    var fontColor = $(".sp-preview-inner").css("backgroundColor");
+
+                    canvas.getActiveObject().set({
+                        "fill": fontColor,
+                        "strokeWidth": 0
+                    });
+                    canvas.requestRenderAll();
+                });
+
+
+                $('#font-family').change(function(){
+                    canvas.getActiveObject().set("fontFamily", this.value);
+                    canvas.requestRenderAll();
+                });
+
+            },
+            // 置顶
+            bringToFront: function (objData){
+                canvas.bringToFront(canvas.getActiveObject());
+                canvas.requestRenderAll();
+            },
+            start: function () {
+                pageFunc.initConfigData();
+                pageFunc.initUserData();
+                pageFunc.bindEvent();
+                pageFunc.renderTable();
+                pageFunc.renderUserData();
+                pageFunc.renderFontFamily();
+
+            }
+        };
+
+
+
+        // 图片的添加
+        var addImg = function (input) {
+            var file = document.getElementById("uploadimg").files[0];
+            var reader = new FileReader();
+            reader.onload = () => {
+                var img = new Image();
+                img.src = reader.result;
+                img.onload = function () {
+                    var w = img.width,
+                        h = img.height;
+                    var canvas = document.createElement('canvas');
+                    var ctx = canvas.getContext('2d');
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    var base64 = canvas.toDataURL('image/jpeg', 0.5);
+                    var result = {
+                        url: window.URL.createObjectURL(file),
+                        base64: base64,
+                        clearBase64: base64.substr(base64.indexOf(',') + 1),
+                        suffix: base64.substring(base64.indexOf('/') + 1, base64.indexOf(';')),
+                    };
+
+                    fabric.Image.fromURL(result.url, (sunImg) => {
+                        sunImg.selection = true;
+                        sunImg.selectable = true;
+                        sunImg.center();
+
+                        pageFunc.addUserData(sunImg);
+                    });
+
+                    //pageFunc.addUserData(sunTextObj);
+
+                }
+            }
+
+            reader.readAsDataURL(file);
+        }
+
+        // 文字的添加
+        var addText = function() {
+
+            var sunTextObj = new fabric.Textbox('双击修改', {
+                fill: '#000000',
+                strokeWidth: 2,
+            });
+            pageFunc.addUserData(sunTextObj);
+            return sunTextObj;
+        };
+
+        // 字体默认颜色
+        $("#colorpicker").spectrum({
+            color: "#f00"
+        });
+
+
+        $(function () {
+            pageFunc.start();
+        });
+
+
+    </script>
+</body>
+
+</html>
